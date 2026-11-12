@@ -1,0 +1,71 @@
+name: Build
+
+# Builds Tabora for iPhone on a GitHub runner with Xcode 27: the Firefox for iOS (WebKit) sources at
+# the pinned commit plus our changes from overlay/. Started by hand only. The result is the app for
+# the iPhone Simulator and a check that the release configuration for a device compiles (unsigned);
+# signing and App Store upload are done separately, signing keys are not kept in CI (docs/IOS.md).
+# Third-party actions are pinned to a full commit SHA (the tag is in the comment).
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build iPhone app (simulator)
+    runs-on: xcode-27
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s /Applications/Xcode_27.2.app
+          xcodebuild -version
+
+      - name: Download Firefox for iOS source
+        run: python3 tools/build.py fetch
+
+      - name: Build tools and user scripts
+        run: python3 tools/build.py prepare
+
+      - name: Apply Tabora changes
+        run: python3 tools/build.py import
+
+      - name: Build
+        env:
+          TABORA_IOS_SIMULATOR: iPhone 17
+        run: python3 tools/build.py build
+
+      - name: Pack
+        run: |
+          cd .build/DerivedData/Build/Products/Debug-iphonesimulator
+          ditto -c -k --keepParent Client.app "$GITHUB_WORKSPACE/tabora-iphone-simulator.zip"
+
+      # The release configuration for a device, unsigned: a check that it compiles (it uses a
+      # different build channel and optimization; signing and upload are separate, docs/IOS.md)
+      - name: Build for iPhone (release configuration, unsigned)
+        run: python3 tools/build.py build --device
+
+      - name: Upload build log if the build failed
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: tabora-iphone-build-log
+          retention-days: 3
+          if-no-files-found: ignore
+          path: |
+            .build/build-sim.log
+            .build/build-device.log
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: tabora-iphone-simulator
+          retention-days: 14
+          path: tabora-iphone-simulator.zip
