@@ -57,6 +57,11 @@ header) are drawn by `tools/assets.py`; the generated files are stored in `overl
   list is loaded at launch and is updated together with the remote settings. Ad blocking can be
   turned off in "Settings → Browsing".
 
+Help links: every "Get help" and "Learn more" link that led to Mozilla's help pages leads to the
+Tabora support site, https://support.tabora.app (requests with a Tabora account or without one);
+links to Mozilla's terms and privacy notice lead to the Tabora website
+(`BrowserKit/Sources/Shared/SupportUtils.swift.patch`).
+
 Turned off for everyone and cannot be turned on in the settings:
 
 - telemetry (Glean), crash reports (Sentry), Mozilla experiments and surveys;
